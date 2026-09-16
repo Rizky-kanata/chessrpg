@@ -1014,32 +1014,110 @@
   let onlineMode = false;
   let myColor = 'w';
   let lobbyId = null;
-  let channel = null;
+  let ws = null;
 
   function showScreen(id) {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     $(id).classList.add('active');
   }
 
-  function getUsers() {
-    return JSON.parse(localStorage.getItem('chessgg_users') || '{}');
-  }
-  function saveUsers(users) {
-    localStorage.setItem('chessgg_users', JSON.stringify(users));
-  }
-  function getLobbies() {
-    return JSON.parse(localStorage.getItem('chessgg_lobbies') || '{}');
-  }
-  function saveLobbies(lobbies) {
-    localStorage.setItem('chessgg_lobbies', JSON.stringify(lobbies));
+  function getWsUrl() {
+    if (location.protocol === 'file:') {
+      return 'ws://localhost:3000';
+    }
+    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    return `${proto}//${location.host}`;
   }
 
-  function generateLobbyId() {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    let id = '';
-    for (let i = 0; i < 6; i++) id += chars[Math.floor(Math.random() * chars.length)];
-    return id;
+  function connectWs() {
+    if (ws && (ws.readyState === 0 || ws.readyState === 1)) return;
+    try {
+      ws = new WebSocket(getWsUrl());
+    } catch {
+      return;
+    }
+
+    ws.onmessage = e => {
+      let msg;
+      try { msg = JSON.parse(e.data); } catch { return; }
+
+      switch (msg.type) {
+        case 'registerResult':
+          if (msg.ok) {
+            $('regError').style.color = 'var(--success)';
+            $('regError').textContent = 'Registrasi berhasil! Silakan login.';
+            setTimeout(() => {
+              $('registerCard').style.display = 'none';
+              $('loginCard').style.display = '';
+              $('regError').style.color = '';
+              $('regError').textContent = '';
+            }, 1000);
+          } else {
+            $('regError').textContent = msg.error;
+          }
+          break;
+
+        case 'loginResult':
+          if (msg.ok) {
+            currentUser = { username: msg.username };
+            sessionStorage.setItem('chessgg_user', msg.username);
+            enterLobby();
+          } else {
+            $('loginError').textContent = msg.error;
+          }
+          break;
+
+        case 'lobbyList':
+          renderLobbyList(msg.lobbies);
+          break;
+
+        case 'lobbyCreated':
+          lobbyId = msg.lobbyId;
+          $('lobbyIdDisplay').textContent = lobbyId;
+          $('lobbyWaiting').style.display = '';
+          document.querySelector('.lobby-modes').style.display = 'none';
+          break;
+
+        case 'joinResult':
+          if (!msg.ok) {
+            alert(msg.error);
+          }
+          break;
+
+        case 'gameStart':
+          startOnlineGame(msg.host, msg.guest, msg.color, msg.lobbyId);
+          break;
+
+        case 'move':
+          receiveOnlineMove(msg);
+          break;
+
+        case 'chat':
+          addChatMessage(msg.username, msg.text);
+          break;
+
+        case 'opponentLeft':
+          alert(`${msg.username} telah meninggalkan permainan.`);
+          if (onlineMode) {
+            leaveLobby();
+            enterLobby();
+          }
+          break;
+      }
+    };
+
+    ws.onclose = () => {
+      setTimeout(connectWs, 2000);
+    };
   }
+
+  function sendWs(data) {
+    if (ws && ws.readyState === 1) {
+      ws.send(JSON.stringify(data));
+    }
+  }
+
+  connectWs();
 
   $('showRegister').addEventListener('click', e => { e.preventDefault(); $('loginCard').style.display = 'none'; $('registerCard').style.display = ''; });
   $('showLogin').addEventListener('click', e => { e.preventDefault(); $('registerCard').style.display = 'none'; $('loginCard').style.display = ''; });
@@ -1052,19 +1130,7 @@
     if (user.length < 3) { $('regError').textContent = 'Username minimal 3 karakter'; return; }
     if (pass.length < 4) { $('regError').textContent = 'Password minimal 4 karakter'; return; }
     if (pass !== pass2) { $('regError').textContent = 'Password tidak cocok'; return; }
-    const users = getUsers();
-    if (users[user.toLowerCase()]) { $('regError').textContent = 'Username sudah dipakai'; return; }
-    users[user.toLowerCase()] = { username: user, password: btoa(pass), wins: 0, losses: 0 };
-    saveUsers(users);
-    $('regError').style.color = 'var(--success)';
-    $('regError').textContent = 'Registrasi berhasil! Silakan login.';
-    setTimeout(() => {
-      $('registerCard').style.display = 'none';
-      $('loginCard').style.display = '';
-      $('regError').style.color = '';
-      $('regError').textContent = '';
-      $('loginUser').value = user;
-    }, 1000);
+    sendWs({ type: 'register', username: user, password: pass });
   });
 
   $('btnLogin').addEventListener('click', () => {
@@ -1072,23 +1138,18 @@
     const pass = $('loginPass').value;
     $('loginError').textContent = '';
     if (!user || !pass) { $('loginError').textContent = 'Isi semua field'; return; }
-    const users = getUsers();
-    const u = users[user.toLowerCase()];
-    if (!u || atob(u.password) !== pass) { $('loginError').textContent = 'Username atau password salah'; return; }
-    currentUser = u;
-    localStorage.setItem('chessgg_session', user.toLowerCase());
-    enterLobby();
+    sendWs({ type: 'login', username: user, password: pass });
   });
 
   function enterLobby() {
     $('lobbyUsername').textContent = currentUser.username;
     showScreen('lobbyScreen');
-    refreshRoomsList();
+    sendWs({ type: 'getLobbies' });
   }
 
   $('btnLogout').addEventListener('click', () => {
     currentUser = null;
-    localStorage.removeItem('chessgg_session');
+    sessionStorage.removeItem('chessgg_user');
     leaveLobby();
     showScreen('authScreen');
   });
@@ -1106,25 +1167,7 @@
   });
 
   $('btnCreateLobby').addEventListener('click', () => {
-    lobbyId = generateLobbyId();
-    const lobbies = getLobbies();
-    lobbies[lobbyId] = { host: currentUser.username, guest: null, created: Date.now() };
-    saveLobbies(lobbies);
-    $('lobbyIdDisplay').textContent = lobbyId;
-    $('lobbyWaiting').style.display = '';
-    document.querySelector('.lobby-modes').style.display = 'none';
-
-    channel = new BroadcastChannel('chessgg_' + lobbyId);
-    channel.onmessage = e => {
-      const msg = e.data;
-      if (msg.type === 'join') {
-        myColor = 'w';
-        channel.postMessage({ type: 'start', host: currentUser.username, guest: msg.username, lobbyId });
-        startOnlineGame(currentUser.username, msg.username, 'w');
-      }
-      if (msg.type === 'move') receiveOnlineMove(msg);
-      if (msg.type === 'chat') addChatMessage(msg.username, msg.text);
-    };
+    sendWs({ type: 'createLobby' });
   });
 
   $('btnCopyLobby').addEventListener('click', () => {
@@ -1134,6 +1177,7 @@
   });
 
   $('btnCancelLobby').addEventListener('click', () => {
+    sendWs({ type: 'cancelLobby' });
     leaveLobby();
     $('lobbyWaiting').style.display = 'none';
     document.querySelector('.lobby-modes').style.display = '';
@@ -1142,67 +1186,37 @@
   $('btnJoinLobby').addEventListener('click', () => {
     const id = $('joinLobbyInput').value.trim().toUpperCase();
     if (!id) return;
-    const lobbies = getLobbies();
-    if (!lobbies[id]) {
-      alert('Lobby tidak ditemukan!');
-      return;
-    }
-    if (lobbies[id].host === currentUser.username) {
-      alert('Tidak bisa join lobby sendiri!');
-      return;
-    }
-    lobbyId = id;
-    lobbies[id].guest = currentUser.username;
-    saveLobbies(lobbies);
-
-    channel = new BroadcastChannel('chessgg_' + lobbyId);
-    channel.onmessage = e => {
-      const msg = e.data;
-      if (msg.type === 'start') {
-        myColor = 'b';
-        startOnlineGame(msg.host, currentUser.username, 'b');
-      }
-      if (msg.type === 'move') receiveOnlineMove(msg);
-      if (msg.type === 'chat') addChatMessage(msg.username, msg.text);
-    };
-    channel.postMessage({ type: 'join', username: currentUser.username });
+    sendWs({ type: 'joinLobby', lobbyId: id });
   });
 
-  function refreshRoomsList() {
-    const lobbies = getLobbies();
+  function renderLobbyList(lobbies) {
     const list = $('roomsList');
     list.innerHTML = '';
-    const now = Date.now();
-    let count = 0;
-    for (const [id, lobby] of Object.entries(lobbies)) {
-      if (now - lobby.created > 3600000) continue;
-      if (lobby.guest) continue;
-      count++;
+    if (!lobbies || lobbies.length === 0) {
+      list.innerHTML = '<p style="color:var(--text2);text-align:center;padding:16px">Belum ada lobby aktif</p>';
+      return;
+    }
+    for (const lobby of lobbies) {
       const div = document.createElement('div');
       div.className = 'room-item';
-      div.innerHTML = `<div class="room-item-info"><span class="room-item-name">${lobby.host}</span><span class="room-item-id">ID: ${id}</span></div><button class="btn action-btn primary btn-sm" data-id="${id}">Join</button>`;
+      div.innerHTML = `<div class="room-item-info"><span class="room-item-name">${lobby.host}</span><span class="room-item-id">ID: ${lobby.id}</span></div><button class="btn action-btn primary btn-sm" data-id="${lobby.id}">Join</button>`;
       div.querySelector('button').addEventListener('click', () => {
-        $('joinLobbyInput').value = id;
+        $('joinLobbyInput').value = lobby.id;
         $('btnJoinLobby').click();
       });
       list.appendChild(div);
     }
-    if (count === 0) list.innerHTML = '<p style="color:var(--text2);text-align:center;padding:16px">Belum ada lobby aktif</p>';
   }
 
   function leaveLobby() {
-    if (channel) { channel.close(); channel = null; }
-    if (lobbyId) {
-      const lobbies = getLobbies();
-      delete lobbies[lobbyId];
-      saveLobbies(lobbies);
-      lobbyId = null;
-    }
+    sendWs({ type: 'leaveLobby' });
+    lobbyId = null;
   }
 
-  function startOnlineGame(hostName, guestName, color) {
+  function startOnlineGame(hostName, guestName, color, id) {
     onlineMode = true;
     myColor = color;
+    lobbyId = id;
     mode = 'online';
     flipped = myColor === 'b';
 
@@ -1213,26 +1227,20 @@
     $('btnUndo').style.display = 'none';
     $('chatMessages').innerHTML = '';
 
-    if (myColor === 'w') {
-      $('whitePlayerName').textContent = hostName + ' (Putih)';
-      $('blackPlayerName').textContent = guestName + ' (Hitam)';
-    } else {
-      $('whitePlayerName').textContent = hostName + ' (Putih)';
-      $('blackPlayerName').textContent = guestName + ' (Hitam)';
-    }
+    $('whitePlayerName').textContent = hostName + ' (Putih)';
+    $('blackPlayerName').textContent = guestName + ' (Hitam)';
 
     showScreen('gameScreen');
     newGame();
-    addChatMessage('System', 'Game dimulai! ' + hostName + ' vs ' + guestName);
+    addChatMessage('System', `Game dimulai! ${hostName} vs ${guestName}`);
   }
 
   function sendOnlineMove(move) {
-    if (!channel || !onlineMode) return;
-    channel.postMessage({
+    if (!onlineMode) return;
+    sendWs({
       type: 'move',
       fr: move.fr, fc: move.fc, tr: move.tr, tc: move.tc,
-      promotion: move.promotion || null,
-      username: currentUser.username
+      promotion: move.promotion || null
     });
   }
 
@@ -1284,9 +1292,8 @@
   $('chatInput').addEventListener('keydown', e => { if (e.key === 'Enter') sendChat(); });
   function sendChat() {
     const text = $('chatInput').value.trim();
-    if (!text || !channel) return;
-    channel.postMessage({ type: 'chat', username: currentUser.username, text });
-    addChatMessage(currentUser.username, text);
+    if (!text) return;
+    sendWs({ type: 'chat', text });
     $('chatInput').value = '';
   }
 
@@ -1375,16 +1382,11 @@
     }
   });
 
-  // --- Auto-login check ---
-  const savedSession = localStorage.getItem('chessgg_session');
-  if (savedSession) {
-    const users = getUsers();
-    if (users[savedSession]) {
-      currentUser = users[savedSession];
-      enterLobby();
-    } else {
-      showScreen('authScreen');
-    }
+  // --- Session check ---
+  const savedUser = sessionStorage.getItem('chessgg_user');
+  if (savedUser) {
+    currentUser = { username: savedUser };
+    enterLobby();
   } else {
     showScreen('authScreen');
   }
