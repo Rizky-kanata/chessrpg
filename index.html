@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chess Master GG</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <div class="screen active" id="authScreen">
+    <div class="auth-container">
+      <div class="auth-logo">
+        <span class="logo-icon">&#9812;</span>
+        <h1>CHESS<span>GG</span></h1>
+        <p class="auth-subtitle">Battle Chess RPG Online</p>
+      </div>
+      <div class="auth-card" id="loginCard">
+        <h2>Login</h2>
+        <div class="auth-field">
+          <label>Username</label>
+          <input type="text" id="loginUser" placeholder="Masukkan username" autocomplete="off" />
+        </div>
+        <div class="auth-field">
+          <label>Password</label>
+          <input type="password" id="loginPass" placeholder="Masukkan password" />
+        </div>
+        <div class="auth-error" id="loginError"></div>
+        <button class="btn action-btn primary auth-btn" id="btnLogin">Masuk</button>
+        <p class="auth-switch">Belum punya akun? <a href="#" id="showRegister">Daftar</a></p>
+      </div>
+      <div class="auth-card" id="registerCard" style="display:none">
+        <h2>Register</h2>
+        <div class="auth-field">
+          <label>Username</label>
+          <input type="text" id="regUser" placeholder="Pilih username (min 3 huruf)" autocomplete="off" />
+        </div>
+        <div class="auth-field">
+          <label>Password</label>
+          <input type="password" id="regPass" placeholder="Buat password (min 4 huruf)" />
+        </div>
+        <div class="auth-field">
+          <label>Konfirmasi Password</label>
+          <input type="password" id="regPass2" placeholder="Ulangi password" />
+        </div>
+        <div class="auth-error" id="regError"></div>
+        <button class="btn action-btn primary auth-btn" id="btnRegister">Daftar</button>
+        <p class="auth-switch">Sudah punya akun? <a href="#" id="showLogin">Login</a></p>
+      </div>
+    </div>
+  </div>
+
+  <div class="screen" id="lobbyScreen">
+    <div class="lobby-container">
+      <div class="lobby-header">
+        <div class="logo">
+          <span class="logo-icon">&#9812;</span>
+          <h1>CHESS<span>GG</span></h1>
+        </div>
+        <div class="lobby-user-info">
+          <span class="lobby-username" id="lobbyUsername"></span>
+          <button class="btn action-btn secondary btn-sm" id="btnLogout">Logout</button>
+        </div>
+      </div>
+
+      <div class="lobby-content">
+        <div class="lobby-welcome">
+          <h2>Pilih Mode Bermain</h2>
+        </div>
+
+        <div class="lobby-modes">
+          <div class="lobby-mode-card" id="cardOffline">
+            <div class="mode-icon">&#9816;</div>
+            <h3>Offline</h3>
+            <p>Main lawan AI atau 2 pemain lokal</p>
+            <button class="btn action-btn primary" id="btnPlayOffline">Main Offline</button>
+          </div>
+
+          <div class="lobby-mode-card" id="cardCreateLobby">
+            <div class="mode-icon">&#9813;</div>
+            <h3>Buat Lobby</h3>
+            <p>Buat room dan bagikan ID ke teman</p>
+            <button class="btn action-btn primary" id="btnCreateLobby">Buat Room</button>
+          </div>
+
+          <div class="lobby-mode-card" id="cardJoinLobby">
+            <div class="mode-icon">&#9814;</div>
+            <h3>Join Lobby</h3>
+            <p>Masuk ke room teman dengan ID lobby</p>
+            <input type="text" id="joinLobbyInput" placeholder="Masukkan Lobby ID" class="lobby-input" autocomplete="off" />
+            <button class="btn action-btn primary" id="btnJoinLobby">Join Room</button>
+          </div>
+        </div>
+
+        <div class="lobby-waiting" id="lobbyWaiting" style="display:none">
+          <div class="waiting-card">
+            <div class="waiting-spinner"></div>
+            <h3>Menunggu Lawan...</h3>
+            <div class="lobby-id-display">
+              <span>Lobby ID:</span>
+              <strong id="lobbyIdDisplay"></strong>
+              <button class="btn action-btn secondary btn-sm" id="btnCopyLobby">Copy</button>
+            </div>
+            <p class="waiting-hint">Bagikan Lobby ID ke teman untuk bergabung</p>
+            <button class="btn action-btn secondary" id="btnCancelLobby">Batalkan</button>
+          </div>
+        </div>
+
+        <div class="lobby-active-rooms" id="activeRooms">
+          <h3>Lobby Aktif</h3>
+          <div class="rooms-list" id="roomsList"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="screen" id="gameScreen">
+    <div class="app-container">
+      <header class="header">
+        <div class="logo">
+          <span class="logo-icon">&#9812;</span>
+          <h1>CHESS<span>GG</span></h1>
+        </div>
+        <div class="header-right">
+          <div class="online-badge" id="onlineBadge" style="display:none">ONLINE</div>
+          <div class="game-status-badge" id="gameStatus">Giliran: Putih</div>
+          <button class="btn action-btn secondary btn-sm" id="btnBackToLobby">Lobby</button>
+        </div>
+      </header>
+
+      <main class="main-content">
+        <div class="left-panel">
+          <div class="player-card" id="blackPlayerCard">
+            <div class="avatar">&#9818;</div>
+            <div class="player-info">
+              <div class="name" id="blackPlayerName">Hitam (AI / P2)</div>
+              <div class="captured-pieces" id="blackCaptured"></div>
+            </div>
+            <div class="timer" id="blackTimer">10:00</div>
+          </div>
+
+          <div class="board-wrapper">
+            <div class="board" id="chessboard"></div>
+          </div>
+
+          <div class="player-card" id="whitePlayerCard">
+            <div class="avatar">&#9812;</div>
+            <div class="player-info">
+              <div class="name" id="whitePlayerName">Putih (Kamu)</div>
+              <div class="captured-pieces" id="whiteCaptured"></div>
+            </div>
+            <div class="timer" id="whiteTimer">10:00</div>
+          </div>
+        </div>
+
+        <div class="right-panel">
+          <div class="panel-section" id="modeSection">
+            <h2>Mode Game</h2>
+            <div class="mode-selector">
+              <button class="btn mode-btn active" data-mode="ai">Lawan Bot AI</button>
+              <button class="btn mode-btn" data-mode="pvp">2 Pemain Lokal</button>
+            </div>
+          </div>
+
+          <div class="panel-section" id="difficultySection">
+            <h2>Tingkat Kesulitan AI</h2>
+            <div class="diff-selector">
+              <button class="btn diff-btn" data-diff="easy">Mudah</button>
+              <button class="btn diff-btn active" data-diff="medium">Sedang</button>
+              <button class="btn diff-btn" data-diff="hard">Master GG</button>
+            </div>
+          </div>
+
+          <div class="panel-section">
+            <h2>Waktu Permainan</h2>
+            <div class="time-selector">
+              <button class="btn time-btn" data-time="180">3 Menit</button>
+              <button class="btn time-btn active" data-time="600">10 Menit</button>
+              <button class="btn time-btn" data-time="0">&#8734; Santai</button>
+            </div>
+          </div>
+
+          <div class="panel-section controls">
+            <button class="btn action-btn primary" id="btnNewGame">Game Baru</button>
+            <button class="btn action-btn secondary" id="btnUndo">Undo Langkah</button>
+            <button class="btn action-btn secondary" id="btnFlip">Balik Papan</button>
+          </div>
+
+          <div class="panel-section" id="onlineChatSection" style="display:none">
+            <h2>Chat</h2>
+            <div class="chat-messages" id="chatMessages"></div>
+            <div class="chat-input-row">
+              <input type="text" id="chatInput" placeholder="Ketik pesan..." class="lobby-input" autocomplete="off" />
+              <button class="btn action-btn primary btn-sm" id="btnSendChat">Kirim</button>
+            </div>
+          </div>
+
+          <div class="panel-section history-section">
+            <h2>Riwayat Langkah</h2>
+            <div class="move-history" id="moveHistory"></div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="modalOverlay">
+    <div class="modal">
+      <h2 id="modalTitle">Skakmat!</h2>
+      <p id="modalMessage">Putih menang!</p>
+      <button class="btn action-btn primary" id="modalBtnRestart">Main Lagi</button>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="promotionOverlay">
+    <div class="modal promotion-modal">
+      <h2>Pilih Promosi Pion</h2>
+      <div class="promotion-choices" id="promotionChoices"></div>
+    </div>
+  </div>
+
+  <div class="battle-overlay" id="battleOverlay">
+    <div class="battle-arena">
+      <div class="battle-bg-effects">
+        <div class="battle-spark" id="sparks"></div>
+      </div>
+      <div class="battle-title" id="battleTitle">BATTLE!</div>
+      <div class="battle-field">
+        <div class="fighter left-fighter" id="attackerSide">
+          <div class="fighter-glow"></div>
+          <div class="fighter-piece" id="attackerPiece"></div>
+          <div class="fighter-name" id="attackerName"></div>
+          <div class="hp-bar-container">
+            <div class="hp-bar" id="attackerHP"></div>
+            <span class="hp-text" id="attackerHPText"></span>
+          </div>
+          <div class="fighter-stats" id="attackerStats"></div>
+        </div>
+        <div class="battle-vs">VS</div>
+        <div class="fighter right-fighter" id="defenderSide">
+          <div class="fighter-glow"></div>
+          <div class="fighter-piece" id="defenderPiece"></div>
+          <div class="fighter-name" id="defenderName"></div>
+          <div class="hp-bar-container">
+            <div class="hp-bar" id="defenderHP"></div>
+            <span class="hp-text" id="defenderHPText"></span>
+          </div>
+          <div class="fighter-stats" id="defenderStats"></div>
+        </div>
+      </div>
+      <div class="battle-log" id="battleLog"></div>
+    </div>
+  </div>
+
+  <script src="chess.js"></script>
+</body>
+</html>
