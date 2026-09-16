@@ -1037,6 +1037,15 @@
       return;
     }
 
+    ws.onopen = () => {
+      if (currentUser) {
+        sendWs({ type: 'relogin', username: currentUser.username });
+      }
+      while (wsQueue.length) {
+        ws.send(JSON.stringify(wsQueue.shift()));
+      }
+    };
+
     ws.onmessage = e => {
       let msg;
       try { msg = JSON.parse(e.data); } catch { return; }
@@ -1111,9 +1120,12 @@
     };
   }
 
+  let wsQueue = [];
   function sendWs(data) {
     if (ws && ws.readyState === 1) {
       ws.send(JSON.stringify(data));
+    } else {
+      wsQueue.push(data);
     }
   }
 

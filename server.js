@@ -123,8 +123,18 @@ wss.on('connection', (ws) => {
         break;
       }
 
+      case 'relogin': {
+        const name = (msg.username || '').trim();
+        if (name) {
+          ws._username = name;
+          sendTo(ws, { type: 'reloginOk', username: name });
+          sendTo(ws, { type: 'lobbyList', lobbies: getLobbyList() });
+        }
+        break;
+      }
+
       case 'createLobby': {
-        if (!ws._username) return;
+        if (!ws._username) { sendTo(ws, { type: 'joinResult', ok: false, error: 'Belum login, coba refresh halaman' }); return; }
         let id;
         do { id = generateId(); } while (lobbies.has(id));
         lobbies.set(id, { host: { username: ws._username, ws }, guest: null, created: Date.now() });
@@ -135,7 +145,7 @@ wss.on('connection', (ws) => {
       }
 
       case 'joinLobby': {
-        if (!ws._username) return;
+        if (!ws._username) { sendTo(ws, { type: 'joinResult', ok: false, error: 'Belum login, coba refresh halaman' }); return; }
         const id = (msg.lobbyId || '').toUpperCase();
         const lobby = lobbies.get(id);
         if (!lobby) { sendTo(ws, { type: 'joinResult', ok: false, error: 'Lobby tidak ditemukan' }); return; }
