@@ -1054,13 +1054,14 @@
         case 'registerResult':
           if (msg.ok) {
             $('regError').style.color = 'var(--success)';
-            $('regError').textContent = 'Registrasi berhasil! Silakan login.';
+            $('regError').textContent = 'Registrasi berhasil!';
+            const regName = $('regUser').value.trim();
+            const regPass = $('regPass').value;
             setTimeout(() => {
-              $('registerCard').style.display = 'none';
-              $('loginCard').style.display = '';
               $('regError').style.color = '';
               $('regError').textContent = '';
-            }, 1000);
+              sendWs({ type: 'login', username: regName, password: regPass });
+            }, 800);
           } else {
             $('regError').textContent = msg.error;
           }
