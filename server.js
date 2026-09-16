@@ -14,7 +14,31 @@ const MIME = {
 };
 
 const lobbies = new Map();
-const users = new Map();
+
+const USERS_FILE = path.join(__dirname, 'users.json');
+let users = new Map();
+
+function loadUsers() {
+  try {
+    if (fs.existsSync(USERS_FILE)) {
+      const data = JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'));
+      users = new Map(Object.entries(data));
+    }
+  } catch (e) {
+    console.error('Error loading users:', e);
+  }
+}
+
+function saveUsersToFile() {
+  try {
+    const obj = Object.fromEntries(users);
+    fs.writeFileSync(USERS_FILE, JSON.stringify(obj, null, 2), 'utf8');
+  } catch (e) {
+    console.error('Error saving users:', e);
+  }
+}
+
+loadUsers();
 
 const server = http.createServer((req, res) => {
   let filePath = req.url === '/' ? '/index.html' : req.url.split('?')[0];
@@ -108,6 +132,7 @@ wss.on('connection', (ws) => {
         if (pass.length < 4) { sendTo(ws, { type: 'registerResult', ok: false, error: 'Password minimal 4 karakter' }); return; }
         if (users.has(name.toLowerCase())) { sendTo(ws, { type: 'registerResult', ok: false, error: 'Username sudah dipakai' }); return; }
         users.set(name.toLowerCase(), { username: name, password: pass, wins: 0, losses: 0 });
+        saveUsersToFile();
         sendTo(ws, { type: 'registerResult', ok: true });
         break;
       }

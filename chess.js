@@ -1070,7 +1070,7 @@
         case 'loginResult':
           if (msg.ok) {
             currentUser = { username: msg.username };
-            sessionStorage.setItem('chessgg_user', msg.username);
+            localStorage.setItem('chessgg_user', msg.username);
             enterLobby();
           } else {
             $('loginError').textContent = msg.error;
@@ -1162,7 +1162,7 @@
 
   $('btnLogout').addEventListener('click', () => {
     currentUser = null;
-    sessionStorage.removeItem('chessgg_user');
+    localStorage.removeItem('chessgg_user');
     leaveLobby();
     showScreen('authScreen');
   });
@@ -1396,7 +1396,7 @@
   });
 
   // --- Session check ---
-  const savedUser = sessionStorage.getItem('chessgg_user');
+  const savedUser = localStorage.getItem('chessgg_user');
   if (savedUser) {
     currentUser = { username: savedUser };
     enterLobby();
